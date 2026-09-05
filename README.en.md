@@ -278,7 +278,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.20** — red-path coverage: of 143 assertions only six asserted that a gate goes RED; the rest asked whether good input goes green, and a gate that has quietly stopped failing is invisible from the green side. Every offline gate is now driven twice from one fixture — as shipped exits 0, one deliberate defect exits 1 and names it — with "nothing to check" pinned to exit 5; ten gates + lib/png, 50 checks; mutation-testing three silenced gates caught 5; selftest 143→193.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.21** — scripts/README turned into an index: at 81.5K it was the largest file in the skill, and not because of war stories (9–19% by sentence) but because it was a hand-kept Chinese second copy of every script's `--help` header, split across two tables. Now each thing lives in one place: the README answers "which script" (one row each), the spec moved verbatim into script headers where `--help` prints it, stories went to `case-studies/scripts.md`; `check-cases.mjs` accepts headers as a third destination, 765 sentences missing 0; the move caught a documented flag no script ever accepted; index ↔ disk pinned both ways; mandatory set 130–173K → 117–156K tokens; selftest 193→198.
 
 ## Contributing
 

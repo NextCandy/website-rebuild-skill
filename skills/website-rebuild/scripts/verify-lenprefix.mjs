@@ -37,6 +37,12 @@
  *
  *   node scripts/verify-lenprefix.mjs --dir site
  *   node scripts/verify-lenprefix.mjs --base http://127.0.0.1:8081 --routes /,/careers
+ *
+ * 中文规格（自 scripts/README.md 迁入，v0.3.21；本表另一拼写：`verify-lenprefix.mjs`）
+ * **自带长度的载荷门**：走 React flight 流（Next.js App Router 每页内联的 `self.__next_f.push`），逐行按声明的 `T<十六进制>` 字节数前进，确认落点仍是一个行首。⭐ **长度前缀行没有终止符**——下一行的行首就贴在声明的末尾，长度本身即分隔符。因此任何**改变字节数的文本改写**（本地化外链）都会让读取者把下一行的行首吞成正文。
+ * 定位它的是拿 `python3 -m http.server` 伺服同一个目录——两条路由完美渲染，于是错处在服务器而不在字节。⛔ 这道门要**先拿源站校准**：第一版断言"行末必须是换行"，把包括源站自身字节在内的每份文档都判为损坏
+ * **长度前缀门**：Next flight 等格式的行首声明长度，任何重写改了正文却不改声明，解析器会在错误的偏移继续读——逐条断言声明长度 = 实际内容长度
+ * `node verify-lenprefix.mjs --dir site`
  */
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";

@@ -989,9 +989,16 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
   const orphans = [], badHeadings = [], badPointers = [];
   const caseFiles = existsSync(CS) ? readdirSync(CS).filter((f) => f.endsWith(".md")) : [];
   for (const f of caseFiles) {
-    const parent = f === "skill.md" ? path.join(SKILL, "SKILL.md") : path.join(REF, f);
+    const parent = f === "skill.md" ? path.join(SKILL, "SKILL.md") : f === "scripts.md" ? path.join(SKILL, "scripts/README.md") : path.join(REF, f);
     if (!existsSync(parent)) { orphans.push(f); continue; }
     if (f === "skill.md") continue; // SKILL.md sections are unnumbered; pointers use section names
+    if (f === "scripts.md") { // v0.3.21: headings are script paths (one per index row) or README section names, not § numbers
+      const sec = (l) => l.replace(/^## /, "").replace(/（.*$/, "").replace(/[⚠ ]/g, "").trim();
+      const readmeHeads = new Set(readFileSync(parent, "utf8").split("\n").filter((l) => /^## /.test(l)).map(sec));
+      for (const h of readFileSync(path.join(CS, f), "utf8").split("\n").filter((l) => /^## /.test(l)).map((l) => l.replace(/^## /, "").trim()))
+        if (!readmeHeads.has(h) && h !== "本文件的形态史" && !existsSync(path.join(SKILL, "scripts", h))) badHeadings.push(`${f} ## ${h}`);
+      continue;
+    }
     const parentIds = headingIds(readFileSync(parent, "utf8"));
     const caseIds = headingIds(readFileSync(path.join(CS, f), "utf8"));
     for (const id of caseIds) if (!parentIds.has(id)) badHeadings.push(`${f} §${id}`);
@@ -1225,6 +1232,33 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     let threw = null; try { compare(a, frame(4, 4, () => 0)); } catch (e) { threw = e.message; }
     truthy("png.compare — frames of different size refuse rather than compare what overlaps (v0.3.20)", /size mismatch/.test(threw || ""), threw || "did not throw");
   }
+}
+
+// ------------------------------- v0.3.21: scripts/README.md is an INDEX — one row per file, one file per row
+// The manual it used to be was a second, hand-kept copy of every script's own
+// header (the same spec, in Chinese), split across two tables, with nothing
+// syncing them — a row for a flag the script never accepted survived two
+// releases. Now the row answers "which script"; `--help` answers "how"; and
+// this gate holds the row set and the file set equal in both directions.
+{
+  const readme = readFileSync(path.join(SKILL, "scripts/README.md"), "utf8").split("\n");
+  const start = readme.findIndex((l) => /^\| 脚本 \| 用途 \| 阶段 \|/.test(l));
+  const rows = [];
+  for (let i = start + 2; i < readme.length && readme[i].startsWith("|"); i++) rows.push(readme[i].match(/^\| `([^`]+)`/)?.[1]);
+  const onDisk = [];
+  for (const d of ["scripts", "scripts/lib"]) for (const f of readdirSync(path.join(SKILL, d))) if (/\.(mjs|js)$/.test(f) && !/\.example\.mjs$/.test(f)) onDisk.push(`${d}/${f}`);
+  const rowSet = new Set(rows), diskSet = new Set(onDisk);
+  const ghost = rows.filter((r) => !diskSet.has(r)), unlisted = onDisk.filter((f) => !rowSet.has(f));
+  truthy(`scripts/README — every index row names a file on disk (${rows.length} rows) (v0.3.21)`, start > 0 && ghost.length === 0, ghost.join(", ") || "no index table");
+  truthy(`scripts/README — every script and lib on disk has an index row (${onDisk.length} files) (v0.3.21)`, unlisted.length === 0, unlisted.join(", "));
+  truthy("scripts/README — index rows are unique (v0.3.21)", rowSet.size === rows.length);
+  const tr = readFileSync(path.join(SKILL, "tools/README.md"), "utf8");
+  const tmiss = readdirSync(path.join(SKILL, "tools")).filter((f) => f.endsWith(".mjs") && !tr.includes(f));
+  truthy("tools/README — every tools/*.mjs is mentioned (v0.3.21)", tmiss.length === 0, tmiss.join(", "));
+  // the spec that left the README is reachable where the README now points: --help
+  const { headerOf } = await import(path.join(SKILL, "scripts/lib/cli.mjs"));
+  const moved = rows.filter((r) => headerOf(path.join(SKILL, r)).includes("中文规格（自 scripts/README.md 迁入"));
+  truthy(`scripts/README — the moved spec answers --help (${moved.length}/${rows.length} rows carry a 中文规格 block) (v0.3.21)`, moved.length >= 55, `${moved.length}`);
 }
 
 // ---------------------------------------------------------------- summary
