@@ -1,5 +1,37 @@
 # 更新记录
 
+## v0.3.22 — 浏览器道：像素门与探针的判决第一次有了反例（离线 200 + 浏览器 16，变异三处五抓）；lenprefix 的"无可查"分成两种
+
+**问题 1**：v0.3.20 给十道离线门补了反例，但 skill 的头牌承诺"逐像素一致"落在 pixelcompare 的 0.00 上、CLEAN 落在 probe 上——
+这两道门（还有 pixel-walk / verify-routes / verify-crossside / verify-tween / verify-harvest）只有真起 Chrome 才存在，离线道按章程碰不到。
+0.3.18 把它们脚下的 CDP 底座整个换掉（`lib/cdp.mjs` 新建 110 行；probe −136、pixelcompare −85、netcapture −182、sweep-routes −91），
+当时没有任何一条判决断言护着。
+
+**做法**：第二条道 `selftest/browser.mjs`（`npm run test:browser`），独立 CI job，也是发布前的一步。真起无头 Chrome，`serve.mjs` 在
+loopback 起两个进程（a = rebuild、b = mirror，与 pixelcompare 的默认标签一致），夹具是 128 格纯色网格——无字、无字体、无动画，同一份 HTML
+两次渲染逐字节相同，正是像素门自己依赖的确定性；换一格颜色就是可复现的差。16 条：
+- **pixelcompare**：两进程同页 **0.00** 且 metric.json 记 0；换一格 + `--max-mean 0` → 红并打印数字（`GATE FAIL: meanAbsDiff 1.26 > 0`）；
+  **同 URL 两侧退 3**（一个进程量两次就是不可见的假绿）；两张空帧退 5（对着空比出的 0 不是结果）；同 URL 带 `--self` 才允许且标为
+  BAND SAMPLE；`--max-mean` 在 `--self` 下被忽略**并说出来**。
+- **probe**：干净页 CLEAN；一个 404 图红且点名；`console.error` 红且回显；离开 origin 的请求成功时不带 `--no-external` 是 CLEAN、带则红；
+  `--expect-side mirror` 打到 rebuild 服务器 FATAL 3 并说 "answers as side REBUILD"，对的侧过。
+- 夹具要放 `favicon.ico`：Chrome 会主动要，没有就是 404，探针如实计——真项目里复刻侧漏 favicon 也是这么被抓的。
+
+**变异测试**：像素红判改退 0、空帧拒绝改退 0、探针退出码钉 0 → **5 FAIL，每条点名到门**。
+
+两条道共用新的 `selftest/harness.mjs`（断言 / 夹具写入 / 脚本运行 / loopback serve 各一份拼写，run.mjs 里的本地副本删掉）。`run()` 改
+`spawnSync`，**退 0 的 stderr 也进 out**——否则"告警而不退"这类语义永远断言不到（`--max-mean` 被忽略的那条正是这样漏的）。run.mjs
+头注章程改口：不驱动 Chrome 的是这一条道，不是整个 selftest。
+
+**问题 2**：`verify-lenprefix` 对"没有 flight 流"打 note 后仍说 **PASS** 退 0，空目录同样 PASS——"你给我的输入是空的"和"这类站没有这种
+东西"混成一种，而一道永远 PASS 的门让"N 道门全绿"虚高一格。现在：空目录 **FATAL 5**（与 zerodep 同一句"一个都没查到就是同意一切"）；有文档
+但无 flight 流 **SKIPPED 退 0、不说 PASS**（与 verify-fresh 的 SKIPPED 同款：登记进计划，不计入绿）。selftest 钉三条。
+
+**范围外（登记）**：verify-routes 是文件内 CONFIG 形态，命令行驱动不了，未进浏览器道；pixel-walk / verify-crossside / verify-tween /
+verify-harvest 待"判定核拆分"（把 CDP 抓取与纯函数判决分开）时顺手补。
+
+耗时：离线道 ~37 s，浏览器道 ~32 s（7 次 Chrome 启动）。
+
 ## v0.3.21 — scripts/README 索引化：三处各归一处（规格进头注、故事进 case-studies、表只答"选哪个"），零丢失 765/765
 
 **问题**：`scripts/README.md` 81.5K 是全 skill 最大的一份文件，比四拆之后的 `verification-gates.md` 还大。它不是战史堆出来的——

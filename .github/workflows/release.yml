@@ -27,6 +27,9 @@ jobs:
       - name: selftest
         run: npm test
 
+      - name: browser lane — the pixel and probe verdicts against loopback fixtures
+        run: npm run test:browser
+
       - name: what would ship
         run: npm pack --dry-run
 

@@ -250,8 +250,8 @@ skills/website-rebuild/    # 技能本体，目录结构遵循 agentskills.io �
 ├── scripts/               #   零依赖 Node 工序脚本与验收门 + lib/ 共用模块
 │                          #     判级与源码化之前的全部工序都住这里
 └── tools/                 #   源码化阶段的重构器，允许 devDependencies
-selftest/                  # 仓库冒烟自检（npm test；不随 skill 分发）
-.github/workflows/         # CI：push/PR 自动跑 npm test
+selftest/                  # 仓库自检：npm test（离线）+ npm run test:browser（真 Chrome）；不随 skill 分发
+.github/workflows/         # CI：push/PR 跑两条道；tag 触发 npm 发布
 CHANGELOG.md               # 更新记录
 README.md                  # 本文件
 README.en.md               # 英文版 README
@@ -278,7 +278,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.21**：scripts/README 索引化——它 81.5K 是全 skill 最大文件，却不是战史堆的（按句只占 9–19%），而是脚本 `--help` 头注的中文第二份拷贝，分在两张表里手工维护。现在三处各归一处：README 只答"选哪个"（一行一脚本），规格逐字进头注由 `--help` 打印，故事进 `case-studies/scripts.md`；`check-cases.mjs` 认头注为第三去处，765 句 missing 0；搬迁抓到一条脚本从未认过的用法旗标；索引 ↔ 磁盘双向门；必经集合 13.0–17.3 → 11.7–15.6 万 token；selftest 193→198。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.22**：浏览器道——"逐像素一致"落在 pixelcompare 的 0.00 上、CLEAN 落在 probe 上，这两道门只有真起 Chrome 才存在，此前零反例，而 0.3.18 换掉了它们脚下的整个 CDP 底座。现在第二条道 `npm run test:browser` 真起无头 Chrome 对 loopback 纯色网格夹具驱动判决：0.00 / 换一格红 / 同 URL 退 3 / 空帧退 5 / `--self` 带宽 / 404 / console.error / 零外联 / 错侧退 3，共 16 条；变异三处五抓。lenprefix 的"无可查"分成空目录 FATAL 5 与不适用 SKIPPED（不再说 PASS）。离线道 200。
 
 ## 贡献
 
@@ -286,7 +286,7 @@ README.en.md               # 英文版 README
 
 - **每条功能与修复都要有实测出处**——本仓的版本历史全部来自真实复刻项目里撞出来的问题，PR 请说明它在哪个目标上被验证过；
 - **`scripts/` 保持零依赖**（`node:` 之外不许 import，门不许 import 生产者）——`scripts/verify-zerodep.mjs` 会在评审时执行这条纪律；
-- 提交前跑 **`npm test`**（秒级冒烟：语法 / 零依赖 / 共享库实测教训 fixture / 微型镜像端到端）——CI 会在 PR 上自动执行同一套。
+- 提交前跑 **`npm test`**；动了浏览器门（probe / pixelcompare / serve）再跑 **`npm run test:browser`**（真 Chrome，半分钟）（秒级冒烟：语法 / 零依赖 / 共享库实测教训 fixture / 微型镜像端到端）——CI 会在 PR 上自动执行同一套。
 
 ## 许可
 

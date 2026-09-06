@@ -4,8 +4,11 @@
 // Scope: fast, offline, zero-dependency. It guards the toolchain's PURE LOGIC
 // (the shared libs every gate and crawler lean on) plus repo-level invariants
 // (syntax of all 50+ scripts, the zero-dep discipline, doc link integrity).
-// It does NOT drive Chrome or the network — those are the per-project gates'
-// job, priced in browser launches and run inside rebuild projects, not here.
+// It does NOT drive Chrome or the network. The browser-driven gates get their
+// own lane — selftest/browser.mjs, `npm run test:browser` (v0.3.22) — which
+// launches a real headless Chrome against loopback fixtures; it is slower and
+// needs a browser on the machine, so it is a separate script and a separate
+// CI job, never folded into this one.
 //
 // Fixture philosophy: fixtures are GENERATED inline from the measured field
 // cases recorded in the changelog (srcset candidates, escaped spellings,
@@ -14,22 +17,9 @@
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { ROOT, SKILL, scratch, ok, bad, eq, truthy, finish, run, green, red, W, serveOn } from "./harness.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const SKILL = path.join(ROOT, "skills", "website-rebuild");
-const TMP = path.join(ROOT, "selftest", ".tmp");
-rmSync(TMP, { recursive: true, force: true });
-mkdirSync(TMP, { recursive: true });
-
-let pass = 0, fail = 0;
-const ok = (name) => { pass++; console.log(`ok   ${name}`); };
-const bad = (name, why) => { fail++; console.log(`FAIL ${name}${why ? ` — ${why}` : ""}`); };
-const eq = (name, got, want) => {
-  const g = JSON.stringify(got), w = JSON.stringify(want);
-  g === w ? ok(name) : bad(name, `got ${g}, want ${w}`);
-};
-const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
+const TMP = scratch(".tmp");
 
 // ---------------------------------------------------------------- 1. syntax
 {
@@ -1023,27 +1013,9 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
 // and verify-module-map (npx acorn). Their arithmetic is covered where it is
 // separable (lib/png below).
 {
-  const { spawn } = await import("node:child_process");
   const { chmodSync, utimesSync } = await import("node:fs");
   const { sha256: sha } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
-  const run = (script, argv, opts = {}) => {
-    try { return { code: 0, out: String(execFileSync(process.execPath, [path.join(SKILL, script), ...argv], { stdio: "pipe", ...opts })) }; }
-    catch (e) { return { code: e.status, out: String(e.stdout || "") + String(e.stderr || "") }; }
-  };
-  const green = (name, r, re = /PASS/) => truthy(name, r.code === 0 && re.test(r.out), `exit ${r.code}: ${r.out.slice(-240)}`);
-  const red = (name, r, re, code = 1) => truthy(name, r.code === code && re.test(r.out), `exit ${r.code}: ${r.out.slice(-240)}`);
-  const W = (dir, files = {}) => {
-    mkdirSync(dir, { recursive: true });
-    for (const [f, c] of Object.entries(files)) { mkdirSync(path.dirname(path.join(dir, f)), { recursive: true }); writeFileSync(path.join(dir, f), c); }
-    return dir;
-  };
-  const serveOn = async (port, root) => {
-    const sv = spawn(process.execPath, [path.join(SKILL, "scripts/serve.mjs"), "--root", root, "--port", String(port)], { stdio: "pipe" });
-    let up = false;
-    for (let i = 0; i < 40 && !up; i++) { try { await fetch(`http://127.0.0.1:${port}/__wrs/identity`); up = true; } catch { await new Promise((r) => setTimeout(r, 100)); } }
-    if (!up) { sv.kill("SIGTERM"); throw new Error(`serve.mjs did not come up on ${port}`); }
-    return { base: `http://127.0.0.1:${port}`, stop: () => { sv.kill("SIGTERM"); return new Promise((r) => sv.once("exit", r)); } };
-  };
+  // run / green / red / W / serveOn come from harness.mjs (v0.3.22: shared with the browser lane)
 
   // verify-zerodep — the discipline every other gate's credibility rests on.
   {
@@ -1118,7 +1090,10 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
     W(D, { "site/index.html": page("0:T9,hello\n") });
     red("verify-lenprefix — a declaration longer than what remains reds (v0.3.20)", run("scripts/verify-lenprefix.mjs", A), /declares 9 B but only 6 B remain/);
     W(D, { "site/index.html": "<html>no stream here</html>" });
-    green("verify-lenprefix — a document without a flight stream is a NOTE, not a claim (v0.3.20)", run("scripts/verify-lenprefix.mjs", A), /nothing here declares its own length/);
+    const skip = run("scripts/verify-lenprefix.mjs", A);
+    green("verify-lenprefix — documents without a flight stream → SKIPPED exit 0: not applicable (v0.3.22)", skip, /SKIPPED — none of the 1 document\(s\) declares its own length/);
+    truthy("verify-lenprefix — …and it does not say PASS: a skipped gate is not a green one (v0.3.22)", !/PASS —/.test(skip.out), skip.out.slice(-160));
+    red("verify-lenprefix — an empty --dir is FATAL 5: no input is not 'not applicable' (v0.3.22)", run("scripts/verify-lenprefix.mjs", ["--dir", W(path.join(D, "empty"))]), /agrees with everything/, 5);
   }
 
   // verify-shell — the rebuild differs from the mirror ONLY where the transform table says.
@@ -1262,6 +1237,4 @@ const truthy = (name, v, why = "") => (v ? ok(name) : bad(name, why));
 }
 
 // ---------------------------------------------------------------- summary
-rmSync(TMP, { recursive: true, force: true });
-console.log(`\n${fail ? "FAIL" : "PASS"} — ${pass} passed, ${fail} failed.`);
-process.exit(fail ? 1 : 0);
+finish(TMP);

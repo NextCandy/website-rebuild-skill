@@ -3,6 +3,7 @@
 /references/
 /analyses/
 selftest/.tmp/
+selftest/.tmp-browser/
 node_modules/
 
 # OS

@@ -250,8 +250,8 @@ skills/website-rebuild/    # the skill itself, laid out per the agentskills.io s
 ├── scripts/               #   zero-dependency Node stage scripts and gates + lib/ shared modules
 │                          #     every stage before sourcification lives here
 └── tools/                 #   sourcification-stage reconstruction tools; devDependencies allowed
-selftest/                  # repo smoke tests (npm test; not distributed with the skill)
-.github/workflows/         # CI: npm test on push/PR
+selftest/                  # repo self-tests: npm test (offline) + npm run test:browser (real Chrome); not distributed with the skill
+.github/workflows/         # CI: both lanes on push/PR; a tag publishes to npm
 CHANGELOG.md               # changelog
 README.md                  # Chinese README
 README.en.md               # this file
@@ -278,7 +278,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.21** — scripts/README turned into an index: at 81.5K it was the largest file in the skill, and not because of war stories (9–19% by sentence) but because it was a hand-kept Chinese second copy of every script's `--help` header, split across two tables. Now each thing lives in one place: the README answers "which script" (one row each), the spec moved verbatim into script headers where `--help` prints it, stories went to `case-studies/scripts.md`; `check-cases.mjs` accepts headers as a third destination, 765 sentences missing 0; the move caught a documented flag no script ever accepted; index ↔ disk pinned both ways; mandatory set 130–173K → 117–156K tokens; selftest 193→198.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.22** — the browser lane. "Pixel-identical" rests on pixelcompare's 0.00 and CLEAN on probe; those gates exist only with a real Chrome behind them, had zero negative tests, and 0.3.18 had swapped the whole CDP floor under them. `npm run test:browser` now launches headless Chrome against loopback flat-colour grid fixtures and drives the verdicts: 0.00 / one recoloured cell reds / same URL exits 3 / blank frames exit 5 / `--self` band / 404 / console.error / zero-outbound / wrong side exits 3 — 16 checks; mutating three verdicts caught 5. lenprefix's "nothing to check" now splits into empty input (FATAL 5) and not-applicable (SKIPPED, never PASS). Offline lane 200.
 
 ## Contributing
 
@@ -286,7 +286,7 @@ Issues and PRs welcome. Two conventions that differ from most projects:
 
 - **Every feature and fix needs a measured origin** — this repo's entire version history comes from problems hit in real rebuild projects; please state which target validated your PR;
 - **`scripts/` stays zero-dependency** (no imports beyond `node:`, gates may not import producers) — `scripts/verify-zerodep.mjs` enforces this in review;
-- Run **`npm test`** before committing (seconds-fast smoke: syntax / zero-dep / shared-lib lesson fixtures / miniature end-to-end mirror) — CI runs the same suite on every PR.
+- Run **`npm test`**, and **`npm run test:browser`** (real Chrome, ~30 s) when a browser gate changed — probe / pixelcompare / serve before committing (seconds-fast smoke: syntax / zero-dep / shared-lib lesson fixtures / miniature end-to-end mirror) — CI runs the same suite on every PR.
 
 ## License
 
