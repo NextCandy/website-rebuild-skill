@@ -164,7 +164,7 @@ Step 0 → M(n) 全程不装任何东西；**复刻项目要到 M(n+1) 才获得
 | `scripts/gapfill-video.mjs` | HLS/DASH 流媒体阶梯补录（master → rendition → 分片） | M0（有流媒体时） |
 | `scripts/reconcile-gaps.mjs` | 运行时缺口对账：netcapture 的 GAP 行 + 字节推导全集逐条补进镜像；请求头梯子 + 浏览器同款图片 Accept | M0（运行时资源多的站） |
 | `scripts/wayback-mirror.mjs` | X 类抢救：从 CDX 按锚点 + 时间窗选一个连贯时刻，以 `id_` 原始字节抓成标准镜像，洞登记 `wayback-holes.txt` | M0（X 类） |
-| `scripts/serve.mjs` | 零依赖静态服务器兼参照服：MIME / Range / 服务层改写 / 重定向回放；`--fallback-root` 回落链、`--stub-ext-hosts` 桩、`--rewrite` 登记式替换；未知旗标响亮失败 | M0.5 起全程 |
+| `scripts/serve.mjs` | 零依赖静态服务器兼参照服：MIME / Range / 服务层改写 / 重定向回放；`--fallback-root` 回落链、`--stub-ext-hosts` 桩、`--stub-json PATH::FILE` 端点桩（按源站 JSON 合同应答，首次命中打印）、`--rewrite` 登记式替换；未知旗标响亮失败 | M0.5 起全程 |
 | `scripts/probe.mjs` | CDP 无头探针：console / 异常 / 网络 CLEAN 判定进 CI，`--no-external` 零外联，`--walk` 全滚动走查 | M0.5 起每 commit |
 | `scripts/sweep-routes.mjs` | 渲染广度门：全路由一个浏览器，逐路由 0 错误 / 0 失败 / 0 外联 + 交互钩子；不要手搓逐路由起 Chrome | M0.5 起（多路由站） |
 | `scripts/verify-offline.mjs` | 零外联门的静态一半：枚举产出里每个外部绝对 URL 并逐条裁决 | M0.5 起每 commit |

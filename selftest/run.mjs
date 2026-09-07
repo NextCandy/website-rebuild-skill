@@ -1414,4 +1414,27 @@ const TMP = scratch(".tmp");
 }
 
 // ---------------------------------------------------------------- summary
+// serve --stub-json: an origin endpoint answered by its JSON contract, any method (v0.3.23)
+{
+  const D = W(path.join(TMP, "stubjson"), { "site/index.html": "<p>x</p>", "site/favicon.ico": "", "stub.json": JSON.stringify({ success: true, data: { message: "stubbed" } }) });
+  const S = await serveOn(29992, path.join(D, "site"), ["--stub-json", "/wp-admin/admin-ajax.php::" + path.join(D, "stub.json")]);
+  try {
+    const post = await fetch(`${S.base}/wp-admin/admin-ajax.php?action=llHandleContactFormSubmit`, { method: "POST", body: "a=1" });
+    truthy("serve — --stub-json answers a POST to the registered path with the file, 200 application/json (v0.3.23)", post.status === 200 && /application\/json/.test(post.headers.get("content-type") || ""), `${post.status} ${post.headers.get("content-type")}`);
+    eq("serve — …and the body is the file's JSON contract verbatim (v0.3.23)", (await post.json()).data?.message, "stubbed");
+    eq("serve — …a GET to the same path is answered too: the stub is by path, not by method (v0.3.23)", (await fetch(`${S.base}/wp-admin/admin-ajax.php`)).status, 200);
+    eq("serve — …while a neighbouring path still falls through (v0.3.23)", (await fetch(`${S.base}/wp-admin/other.php`)).status, 404);
+  } finally { await S.stop(); }
+  red("serve — --stub-json without PATH::FILE is FATAL 2 (v0.3.23)", run("scripts/serve.mjs", ["--root", path.join(D, "site"), "--port", "29991", "--stub-json", "/x"]), /needs PATH::FILE/, 2);
+  red("serve — --stub-json pointing at a missing file is FATAL 2 before the server listens (v0.3.23)", run("scripts/serve.mjs", ["--root", path.join(D, "site"), "--port", "29991", "--stub-json", "/x::" + path.join(D, "nope.json")]), /not a readable JSON file/, 2);
+}
+
+// pixel-walk forwards the whole pixelcompare protocol (v0.3.23): a walk that drops
+// --seed / --freeze-css re-measures the entropy the caller had just removed.
+{
+  const h = run("scripts/pixel-walk.mjs", ["--help"]);
+  for (const f of ["seed", "freeze-css", "after-ready", "chunk"]) truthy(`pixel-walk — --help lists --${f} as a forwarded flag (v0.3.23)`, h.code === 0 && new RegExp(`--${f}\\b`).test(h.out), h.out.slice(-300));
+  red("pixel-walk — a flag pixelcompare does not know is still FATAL 2 here (v0.3.23)", run("scripts/pixel-walk.mjs", ["--a", "http://127.0.0.1:1/", "--b", "http://127.0.0.1:2/", "--bogus", "1"]), /unknown|FATAL/i, 2);
+}
+
 finish(TMP);
