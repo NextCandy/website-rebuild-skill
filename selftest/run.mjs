@@ -1368,5 +1368,23 @@ const TMP = scratch(".tmp");
   red("sweep-routes — --out that is a directory is FATAL 2 up front, not EISDIR after the sweep (v0.3.23)", run("scripts/sweep-routes.mjs", ["--base", "http://127.0.0.1:1", "--routes", "/", "--out", SD]), /is a directory; give the report FILE path/, 2);
 }
 
+// ------------------------------- v0.3.23 (lamalama): T-DATA-KEEP carves out every data island, not only __NUXT_DATA__
+// A JSON-LD block's url/@id are statements about the page, not addresses; the
+// built-in carve-out only knew Nuxt's spelling, so T-LOCALIZE walked into
+// 2–3 islands per page and rewrote them to "/".
+{
+  const { transformPage } = await import(path.join(SKILL, "scripts/lib/shell-build.mjs"));
+  const cfg = { originHosts: ["x.com"], stubExtHosts: [], mirroredExtHosts: [], transforms: [] };
+  const ld = `<script type="application/ld+json">{"@id":"https:\\/\\/x.com\\/","url":"https://x.com/"}</script>`;
+  const sr = `<script type="speculationrules">{"prefetch":[{"where":{"href_matches":"https://x.com/*"}}]}</script>`;
+  const page = `<html><head>${ld}${sr}</head><body><a href="https://x.com/about">a</a></body></html>`;
+  const r1 = transformPage(page, cfg, { head: false });
+  truthy("shell-build — JSON-LD and speculationrules islands are kept byte-for-byte (v0.3.23)", r1.text.includes(ld) && r1.text.includes(sr), r1.text.slice(0, 200));
+  truthy("shell-build — …while the anchor outside the islands is still localized (v0.3.23)", r1.text.includes('href="/about"'), r1.text.slice(-120));
+  eq("shell-build — the carve-out fires once per island and is ledgered as T-DATA-KEEP (v0.3.23)", r1.hits.get("T-DATA-KEEP"), 2);
+  const r2 = transformPage(`<script type="application/json" id="cfg">{"api":"https://x.com/api"}</script>`, { ...cfg, keepIslands: [/(<script[^>]*id="cfg"[^>]*>)([\s\S]*?)(<\/script>)/g] }, { head: false });
+  truthy("shell-build — cfg.keepIslands adds a site-specific island to the carve-out (v0.3.23)", r2.text.includes('"api":"https://x.com/api"') && r2.hits.get("T-DATA-KEEP") === 1, r2.text);
+}
+
 // ---------------------------------------------------------------- summary
 finish(TMP);
