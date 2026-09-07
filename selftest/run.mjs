@@ -1335,5 +1335,38 @@ const TMP = scratch(".tmp");
   finally { srv.close(); }
 }
 
+// ------------------------------- v0.3.23 (lamalama): verify-mirror's resample replays the ledger row's Accept profile
+// The origin serves WebP under a .jpg URL to a browser image Accept and JPEG to */*,
+// declaring only Vary: Accept-Encoding. The crawler recorded profile "std"; the resample
+// asked with */* and reported the mirror as drifted from an origin that had not changed.
+{
+  const http = await import("node:http");
+  const { writeLedgers } = await import(path.join(SKILL, "scripts/lib/ledger.mjs"));
+  const { sha256: sha } = await import(path.join(SKILL, "scripts/lib/hash.mjs"));
+  const WEBP = Buffer.concat([Buffer.from("RIFF"), Buffer.from([0x10, 0, 0, 0]), Buffer.from("WEBPVP8 "), Buffer.alloc(8, 1)]);
+  const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(40, 2)]);
+  const srv = http.createServer((req, res) => {
+    if (req.url !== "/t.jpg") { res.writeHead(404); return res.end("nf"); }
+    const webp = /image\/webp/.test(req.headers.accept || "");
+    res.writeHead(200, { "content-type": webp ? "image/webp" : "image/jpeg", vary: "Accept-Encoding" }); res.end(webp ? WEBP : JPEG);
+  });
+  await new Promise((ok) => srv.listen(0, "127.0.0.1", ok));
+  const origin = `http://127.0.0.1:${srv.address().port}`;
+  const D = W(path.join(TMP, "neg-mirror"), { "t.jpg": WEBP });
+  const row = (profile) => ({ [`${origin}/t.jpg`]: { path: "t.jpg", bytes: WEBP.length, sha256: sha(WEBP), type: "image/webp", profile, vary: "Accept-Encoding" } });
+  // async execFile, NOT run(): the origin lives in THIS process, and spawnSync would
+  // block the event loop the child's fetch is waiting on (a deadlock, not a slow test).
+  const { execFile } = await import("node:child_process");
+  const vm = async (profile) => { await writeLedgers(D, { origin, files: row(profile), redirects: [] }); return new Promise((resolve) => execFile(process.execPath, [path.join(SKILL, "scripts/verify-mirror.mjs"), "--mirror", D, "--origin", origin, "--resample", "1", "--resample-delay", "0", "--skip", "mapping,authenticity,closure"], { encoding: "utf8", timeout: 30000 }, (err, so, se) => resolve({ code: err ? (err.code ?? 1) : 0, out: String(so) + String(se) }))); };
+  try {
+    await new Promise((r) => setTimeout(r, 50));
+    green("verify-mirror — resample replays profile \"std\": the WebP the browser got still matches (v0.3.23)", await vm("std"), /1\/1 sampled URLs still byte-identical/);
+    red("verify-mirror — …and a row fetched under \"bare\" is re-fetched bare: JPEG ≠ WebP reds (v0.3.23)", await vm("bare"), /no longer match the ledger/);
+  } finally { srv.close(); }
+  // sweep-routes: --out pointing at a directory is refused before any browser starts
+  const SD = W(path.join(TMP, "sweep-dir"));
+  red("sweep-routes — --out that is a directory is FATAL 2 up front, not EISDIR after the sweep (v0.3.23)", run("scripts/sweep-routes.mjs", ["--base", "http://127.0.0.1:1", "--routes", "/", "--out", SD]), /is a directory; give the report FILE path/, 2);
+}
+
 // ---------------------------------------------------------------- summary
 finish(TMP);
