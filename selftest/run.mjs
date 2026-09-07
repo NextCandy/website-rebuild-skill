@@ -1299,5 +1299,41 @@ const TMP = scratch(".tmp");
   truthy("fingerprint — …and the refusal-page Referer retry did not fire on the stub (v0.3.23)", !/疑似拒绝页/.test(rep));
 }
 
+// ------------------------------- v0.3.23 (lamalama): gapfill-video keeps the ledger whole
+// It wrote manifest rows with no sha256 and never touched inventory.tsv — the one
+// ledger writer that bypassed lib/ledger.mjs. A mirror it backfilled (4,741 rows)
+// would have failed verify-mirror's ledger gate on every segment.
+{
+  const http = await import("node:http");
+  const { execFile } = await import("node:child_process");
+  const routes = {
+    "/v/playlist.m3u8": ["application/vnd.apple.mpegurl", "#EXTM3U\n#EXT-X-STREAM-INF:BANDWIDTH=1000,RESOLUTION=640x360\n360p/video.m3u8\n"],
+    "/v/360p/video.m3u8": ["application/vnd.apple.mpegurl", "#EXTM3U\n#EXT-X-TARGETDURATION:4\n#EXTINF:4.0,\nvideo0.ts\n#EXTINF:4.0,\nvideo1.ts\n#EXT-X-ENDLIST\n"],
+    "/v/360p/video0.ts": ["video/mp2t", "SEG0" + "a".repeat(100)], "/v/360p/video1.ts": ["video/mp2t", "SEG1" + "b".repeat(100)],
+  };
+  const srv = http.createServer((req, res) => { const x = routes[req.url]; if (!x) { res.writeHead(404); return res.end("nf"); } res.writeHead(200, { "content-type": x[0] }); res.end(x[1]); });
+  await new Promise((ok) => srv.listen(0, "127.0.0.1", ok));
+  const origin = `http://127.0.0.1:${srv.address().port}`;
+  const GF = path.join(TMP, "gf");
+  const gap = () => new Promise((resolve) => execFile(process.execPath, [path.join(SKILL, "scripts/gapfill-video.mjs"), "--master", `${origin}/v/playlist.m3u8`, "--out", GF, "--origin", origin, "--delay", "0", "--workers", "2"], { cwd: TMP }, (err, so, se) => resolve({ code: err ? err.code : 0, out: String(so) + String(se) })));
+  try {
+    const g1 = await gap();
+    if (!existsSync(path.join(GF, "mirror-manifest.json"))) throw new Error(`gapfill wrote no manifest: exit ${g1.code} :: ${g1.out.slice(-400).replace(/\n/g, " | ")}`);
+    const files = () => JSON.parse(readFileSync(path.join(GF, "mirror-manifest.json"), "utf8")).files;
+    const rows = Object.values(files());
+    truthy("gapfill-video — an absolute --out is used as given; every ladder file lands with bytes AND sha256 (v0.3.23)", g1.code === 0 && rows.length === 4 && rows.every((r) => r.path && /^[0-9a-f]{64}$/.test(r.sha256 || "")), `exit ${g1.code} rows=${JSON.stringify(rows).slice(0, 200)} ${g1.out.slice(-200)}`);
+    const inv = existsSync(path.join(GF, "inventory.tsv")) ? readFileSync(path.join(GF, "inventory.tsv"), "utf8").trim().split("\n") : [];
+    truthy("gapfill-video — inventory.tsv is regenerated through lib/ledger (header + 4 rows) (v0.3.23)", inv.length === 5 && /^SHA256\t/.test(inv[0]), `lines=${inv.length}`);
+    // rows written by the old script (no sha256) are repaired from disk, not re-downloaded
+    const m = JSON.parse(readFileSync(path.join(GF, "mirror-manifest.json"), "utf8"));
+    for (const u of Object.keys(m.files)) if (u.endsWith(".ts")) delete m.files[u].sha256;
+    writeFileSync(path.join(GF, "mirror-manifest.json"), JSON.stringify(m, null, 2)); rmSync(path.join(GF, "inventory.tsv"));
+    const g2 = await gap();
+    truthy("gapfill-video — rows lacking sha256 are repaired from the bytes on disk, 0 downloads (v0.3.23)",
+      g2.code === 0 && /0 segment\(s\) downloaded/.test(g2.out) && /2 row\(s\) repaired/.test(g2.out) && Object.values(files()).every((r) => r.sha256) && existsSync(path.join(GF, "inventory.tsv")), g2.out.slice(-240));
+  } catch (e) { bad("gapfill-video loopback", String(e.message).split("\n")[0]); }
+  finally { srv.close(); }
+}
+
 // ---------------------------------------------------------------- summary
 finish(TMP);
