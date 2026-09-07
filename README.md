@@ -279,7 +279,7 @@ README.en.md               # 英文版 README
 
 版本随真实复刻项目递进：每个版本发布的功能与修复，都先在至少一个完整项目上验证过。
 
-完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.22**：浏览器道——"逐像素一致"落在 pixelcompare 的 0.00 上、CLEAN 落在 probe 上，这两道门只有真起 Chrome 才存在，此前零反例，而 0.3.18 换掉了它们脚下的整个 CDP 底座。现在第二条道 `npm run test:browser` 真起无头 Chrome 对 loopback 纯色网格夹具驱动判决：0.00 / 换一格红 / 同 URL 退 3 / 空帧退 5 / `--self` 带宽 / 404 / console.error / 零外联 / 错侧退 3，共 16 条；变异三处五抓。lenprefix 的"无可查"分成空目录 FATAL 5 与不适用 SKIPPED（不再说 PASS）。离线道 200。
+完整记录见 **[CHANGELOG.md](CHANGELOG.md)**。最新版本 **v0.3.23**：lamalama 战役回哺——像素门第一次要**等媒体到达**：`--ready` 可以把没就绪的原因留在 `window.__why`（pixelcompare 在 never satisfied 时打印），每次跑打 seed/ready/drive 指纹（一份陈旧的重复 seed 吃掉半天），`--drive` 的落点合同写进报错，pixel-walk 转发整套协议；determinism 新增 `autoplay` 属性绕过 `play()` 补丁、HLS 首片 PTS 落洞、谎报 `paused` 反噬 hls.js 三条；serve `--stub-json` 端点桩；加上 M0/M2 的十一条实撞修复。离线 235 + 浏览器 21。
 
 ## 贡献
 

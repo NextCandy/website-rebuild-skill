@@ -279,7 +279,7 @@ Before anything goes public, per-asset copyright **forensics** must be completed
 
 Versions advance with real rebuild projects: every feature and fix shipped was first validated on at least one complete project.
 
-Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.22** — the browser lane. "Pixel-identical" rests on pixelcompare's 0.00 and CLEAN on probe; those gates exist only with a real Chrome behind them, had zero negative tests, and 0.3.18 had swapped the whole CDP floor under them. `npm run test:browser` now launches headless Chrome against loopback flat-colour grid fixtures and drives the verdicts: 0.00 / one recoloured cell reds / same URL exits 3 / blank frames exit 5 / `--self` band / 404 / console.error / zero-outbound / wrong side exits 3 — 16 checks; mutating three verdicts caught 5. lenprefix's "nothing to check" now splits into empty input (FATAL 5) and not-applicable (SKIPPED, never PASS). Offline lane 200.
+Full history in **[CHANGELOG.md](CHANGELOG.md)**. Latest: **v0.3.23** — the lamalama campaign: the pixel gate learns to **wait for media arrival**. A `--ready` predicate can leave its reason in `window.__why` (printed when it never fires), every run fingerprints seed/ready/drive (a stale duplicate seed cost half a day), `--drive` states its landing contract, pixel-walk forwards the whole protocol; determinism gains three rules (the `autoplay` attribute bypasses a `play()` patch, the first HLS fragment's PTS leaves a hole at 0, a faked `paused` provokes hls.js's stall detection); serve gets `--stub-json` endpoint stubs; plus eleven M0/M2 fixes. Offline 235 + browser 21.
 
 ## Contributing
 
