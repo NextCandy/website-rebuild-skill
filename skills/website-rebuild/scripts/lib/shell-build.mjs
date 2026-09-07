@@ -82,7 +82,12 @@ export function localizeShapes(text, host, to, onHit = () => {}) {
   return restore(text
     .replace(new RegExp(`https?://${h}(?=/)`, "g"), hit("absolute", to))
     .replace(new RegExp(`https?://${h}(?!/)`, "g"), hit("absolute-bare", bare))
-    .replace(new RegExp(`https?:\\\\/\\\\/${h}`, "g"), hit("escaped-absolute", toEsc))
+    // Escaped spelling split the same way as the plain one: a bare `https:\/\/host"`
+    // is the home page (→ `\/`), not "" — the build layer wrote `"site_url":""`
+    // while serve.mjs left the value alone, and the two sides disagreed on one
+    // input for the second time (chungiyoo was the unescaped form) [lamalama].
+    .replace(new RegExp(`https?:\\\\/\\\\/${h}(?=\\\\/)`, "g"), hit("escaped-absolute", toEsc))
+    .replace(new RegExp(`https?:\\\\/\\\\/${h}(?!\\\\/)`, "g"), hit("escaped-absolute-bare", toEsc || "\\/"))
     .replace(new RegExp(`https?:${U_RE}${U_RE}${h}(?=${U_RE})`, "gi"), hit("unicode-absolute", toU))
     .replace(new RegExp(`https?:${U_RE}${U_RE}${h}(?!${U_RE})`, "gi"), hit("unicode-absolute-bare", toU || U))
     .replace(new RegExp(`(?<!:)\\\\/\\\\/${h}`, "g"), hit("escaped-protocol-relative", toEsc))

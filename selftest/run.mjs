@@ -1386,5 +1386,32 @@ const TMP = scratch(".tmp");
   truthy("shell-build — cfg.keepIslands adds a site-specific island to the carve-out (v0.3.23)", r2.text.includes('"api":"https://x.com/api"') && r2.hits.get("T-DATA-KEEP") === 1, r2.text);
 }
 
+// ------------------------------- v0.3.23 (lamalama): the two localisation implementations must agree on every shape
+// `"site_url":"https:\/\/lamalama.com"` — the build layer wrote "" and serve.mjs left it
+// untouched. Same disease as chungiyoo (unescaped bare form), one spelling over.
+{
+  const { localizeShapes } = await import(path.join(SKILL, "scripts/lib/shell-build.mjs"));
+  const fx = `a="https://x.com/p";b="https://x.com";c="https:\\/\\/x.com\\/p";d="https:\\/\\/x.com";e="//x.com/q";`;
+  const built = localizeShapes(fx, "x.com", "");
+  eq("shell-build — escaped bare host localises to \\/ like the plain bare host localises to / (v0.3.23)",
+    built, `a="/p";b="/";c="\\/p";d="\\/";e="/q";`);
+  const { spawn } = await import("node:child_process");
+  // an .html fixture: the build layer only ever transforms documents, and serve.mjs
+  // deliberately leaves unescaped //host/ alone inside JS (concatenation with "https:")
+  const R = W(path.join(TMP, "parity"), { "cfg.html": fx });
+  const sv = spawn(process.execPath, [path.join(SKILL, "scripts/serve.mjs"), "--root", R, "--port", "29978", "--origin-host", "x.com"], { stdio: "pipe" });
+  let up = false; for (let i = 0; i < 40 && !up; i++) { try { await fetch("http://127.0.0.1:29978/__wrs/identity"); up = true; } catch { await new Promise((r) => setTimeout(r, 100)); } }
+  try {
+    const served = await (await fetch("http://127.0.0.1:29978/cfg.html")).text();
+    eq("serve — the response-layer rewrite agrees with lib/shell-build on all five origin shapes (v0.3.23)", served, built);
+  } finally { sv.kill("SIGTERM"); await new Promise((r) => sv.once("exit", r)); }
+  // beautify-bundle's README ledger is cumulative across runs
+  const B = W(path.join(TMP, "bl"), { "a-AAAAAAAA.js": "export const a=1;", "b-BBBBBBBB.js": "export const b=2;" });
+  run("scripts/beautify-bundle.mjs", [path.join(B, "a-AAAAAAAA.js"), "--out", path.join(B, "pretty")]);
+  run("scripts/beautify-bundle.mjs", [path.join(B, "b-BBBBBBBB.js"), "--out", path.join(B, "pretty")]);
+  const led = readFileSync(path.join(B, "pretty/README.md"), "utf8");
+  truthy("beautify-bundle — the ledger keeps rows from earlier runs (a batch over the rest must not drop the app row) (v0.3.23)", /\| a-AAAAAAAA\.js \|/.test(led) && /\| b-BBBBBBBB\.js \|/.test(led), led.split("\n").filter((l) => l.startsWith("| ")).join(" || ").slice(0, 300));
+}
+
 // ---------------------------------------------------------------- summary
 finish(TMP);

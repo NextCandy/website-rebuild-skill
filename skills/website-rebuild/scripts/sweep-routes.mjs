@@ -284,6 +284,7 @@ const secs = ((Date.now() - t0) / 1000).toFixed(0);
 if (OUT) {
   const tsv = ["ROUTE\tVERDICT\tERRORS\tFAILURES\tEXTERNAL\tALLOWED_EXTERNAL\tALLOWED_FAILURES\tLIFECYCLE\tEVAL",
     ...rows.map((r) => [r.route, r.verdict, r.errors, r.failures, r.external, r.allowedExternal, r.allowedFailures, r.lifecycle, r.eval].join("\t"))].join("\n") + "\n";
+  (await import("node:fs")).mkdirSync(path.dirname(path.resolve(OUT)), { recursive: true }); // a fresh docs/<run>/ must not cost the sweep
   writeFileSync(path.resolve(OUT), tsv);
   console.log(`  -> ${OUT}`);
 }

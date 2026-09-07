@@ -477,6 +477,10 @@ function rewriteText(text, ext) {
     // the build layer disagree on the same input.
     text = text.replace(new RegExp(`https?://${h.replace(/\./g, "\\.")}(?![/\\w.-])`, "g"), "/");
     text = text.replaceAll(`https:\\/\\/${h}\\/`, "\\/").replaceAll(`http:\\/\\/${h}\\/`, "\\/");
+    // The ESCAPED no-path form (`"site_url":"https:\/\/host"`) is the home page too:
+    // localise to `\/`, exactly what lib/shell-build.mjs does for the build layer —
+    // the two implementations disagreed on this one shape (lamalama).
+    text = text.replace(new RegExp(`https?:\\\\/\\\\/${h.replace(/\./g, "\\.")}(?![\\\\\\w.-])`, "g"), "\\/");
     text = text.replaceAll(`\\/\\/${h}\\/`, "\\/");
     // Shape 6: UNICODE-ESCAPED slashes. Serialised payloads escape "/" as
     // \u002F so the blob can never contain a literal "</script>" — Nuxt's
