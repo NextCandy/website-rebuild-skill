@@ -1261,5 +1261,19 @@ const TMP = scratch(".tmp");
   truthy(`scripts/README — the moved spec answers --help (${moved.length}/${rows.length} rows carry a 中文规格 block) (v0.3.21)`, moved.length >= 55, `${moved.length}`);
 }
 
+// ------------------------------- v0.3.23 (lamalama): beautify-bundle must parse an ES MODULE
+// The post-beautify parse check ran acorn as sourceType "script", so any Vite/esbuild
+// chunk with top-level import/export was "corruption" and the 171,858-char original
+// line shipped back as the coordinates — i.e. no coordinate system at all.
+{
+  const D = W(path.join(TMP, "beautify-esm"), { "esm-AAAAAAAA.js": 'import{a}from"./x-BBBBBBBB.js";export const b=a+1;const c=()=>{return b};export{c}' });
+  const r = run("scripts/beautify-bundle.mjs", [path.join(D, "esm-AAAAAAAA.js"), "--out", path.join(D, "pretty")]);
+  const out = existsSync(path.join(D, "pretty/esm-AAAAAAAA.js")) ? readFileSync(path.join(D, "pretty/esm-AAAAAAAA.js"), "utf8") : "";
+  truthy("beautify-bundle — an ESM chunk parses under the module-aware check: not shipped verbatim (v0.3.23)",
+    r.code === 0 && !/DOES NOT PARSE/.test(r.out) && out.split("\n").length > 3, `exit ${r.code} lines=${out.split("\n").length} ${r.out.slice(-200)}`);
+  truthy("beautify-bundle — …and the ledger records the ESM file as token-equal (v0.3.23)",
+    /esm-AAAAAAAA\.js[^\n]*\| equal \|/.test(readFileSync(path.join(D, "pretty/README.md"), "utf8")), r.out.slice(-200));
+}
+
 // ---------------------------------------------------------------- summary
 finish(TMP);
