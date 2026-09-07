@@ -1275,5 +1275,29 @@ const TMP = scratch(".tmp");
     /esm-AAAAAAAA\.js[^\n]*\| equal \|/.test(readFileSync(path.join(D, "pretty/README.md"), "utf8")), r.out.slice(-200));
 }
 
+// ------------------------------- v0.3.23 (lamalama): fingerprint follows a Vite entry stub
+// main-*.js was 30 bytes of `import"./scripts-…js";` — the "<1KB → refusal page" heuristic
+// fired, retried with a Referer, and reported a 30-byte "bundle". The real bundle is one
+// hop away and every step-5 number belongs to it.
+{
+  const http = await import("node:http");
+  const { execFile } = await import("node:child_process");
+  const routes = {
+    "/": ["text/html", `<html><script type="module" src="/dist/assets/main-AAAAAAAA.js"></script></html>`],
+    "/dist/assets/main-AAAAAAAA.js": ["text/javascript", `import"./scripts-BBBBBBBB.js";`],
+    "/dist/assets/scripts-BBBBBBBB.js": ["text/javascript", `console.log("real");new WebGLRenderer();` + "x".repeat(2000)],
+  };
+  const srv = http.createServer((req, res) => { const x = routes[req.url]; if (!x) { res.writeHead(404); return res.end("nf"); } res.writeHead(200, { "content-type": x[0] }); res.end(x[1]); });
+  await new Promise((ok) => srv.listen(0, "127.0.0.1", ok));
+  const origin = `http://127.0.0.1:${srv.address().port}`;
+  const FP = path.join(TMP, "fp");
+  const res = await new Promise((resolve) => execFile(process.execPath, [path.join(SKILL, "scripts/fingerprint.mjs"), "--target", `${origin}/`, "--bundle", `${origin}/dist/assets/main-AAAAAAAA.js`, "--out", FP, "--gap-ms", "50"], { cwd: TMP }, (err, so, se) => resolve({ code: err ? err.code : 0, out: String(so) + String(se) })));
+  srv.close();
+  const rep = existsSync(path.join(FP, "fingerprint-report.md")) ? readFileSync(path.join(FP, "fingerprint-report.md"), "utf8") : "";
+  truthy("fingerprint — a Vite entry stub is named as such and followed one hop (v0.3.23)", res.code === 0 && /ESM 入口桩/.test(rep) && /scripts-BBBBBBBB\.js/.test(rep), `exit ${res.code} ${rep.slice(-300)}`);
+  truthy("fingerprint — …step-5 numbers are the target's, not the stub's (v0.3.23)", /bytes=20[0-9]{2}/.test(rep) && /WebGLRenderer\s*= 1/.test(rep), rep.split("\n").filter((l) => /bytes=|WebGLRenderer/.test(l)).join(" | "));
+  truthy("fingerprint — …and the refusal-page Referer retry did not fire on the stub (v0.3.23)", !/疑似拒绝页/.test(rep));
+}
+
 // ---------------------------------------------------------------- summary
 finish(TMP);
