@@ -383,6 +383,12 @@ raycastkbd 的 25% 检查点两边都撞过：
 
 ⛔ **协议表达式只能有一个来源，且每次跑都打指纹**【lamalama】：seed / ready / drive 是仪器；包装脚本里一份陈旧的重复 `--seed`（差一条语句：无条件 `currentTime=0`）让 25% 档在 2400 帧里永远 "never satisfied"，而输出里没有任何一行说两次跑的仪器不同。把表达式放进一个被 source 的文件（`protocol.env`），pixelcompare 开头打印 `instrument — seed <sha10> (N chars) · ready … · drive …`；两次结果不同先比指纹。
 
+⛔ **缓存状态是仪器条件，每一拍都冷**【lamalama】：一个浏览器轮流拍两侧，第二拍缓存已热——`img.complete` 在构造时就是 true，站点走同步分支，"缩略图到了才展开"的面板在 B 开着、在 A 关着；同侧自比一格恒定 5.8，`--after-ready` 加到 600 也不动，因为差的不是时间是缓存。`--self` 下两侧同源，这条不对称是纯仪器；跨侧它藏在"第一次访问"里。pixelcompare 每次导航前 `Network.setCacheDisabled` + `clearBrowserCache`（指纹行标 `cold-cache`）。同一族：站点把 UI 状态写进 `localStorage`，第二次访问起点不同——seed 起跑清空。
+
+⭐ **到达判据要看"有图"不看 `complete`**【lamalama】：视口外的懒图在 `srcset` 重选后挂着一个永不开始的 pending 请求，`complete` 恒 false 而画面早就有图；判据用 `naturalWidth>0 || complete`。反过来，喂 GL 纹理的 `<img>`/`<video>` 自己永远 `opacity:0`，可见性只看 `visibility` 不看 `opacity`——它们的到达决定 GL 层画不画。脱离 DOM 的 `Image()` 预载器 `document.images` 看不见，到达只能用更长的 `--after-ready` 让两侧都走到终态（branding 75% 档 24 → 0）。
+
+⛔ **同 URL 连拍会恢复上一拍的滚动位置**【lamalama】：Chrome 的 scroll restoration 在 `load` 之前把第二拍放到第一拍落点，站点 init 看到的起点不同、观察者触发不同，`--self` 带宽里就多出一格恒定的 3.7（跨侧 URL 不同、没有这条）。走位 seed 第一句 `history.scrollRestoration = 'manual'`——巡航自己驱动滚动，恢复没有用处。
+
 ## 8. 常见坑
 
 1. **把环境问题当代码 bug 修**：后台节流假死、探针时钟与页面时钟错位（伪装成"计时器时间压缩"）、vite HMR `?t=` 幽灵模块让探针读到假状态——**判定时序 bug 前先校准探针**【samsy】；环境陷阱全表见 `references/environment-traps.md`。

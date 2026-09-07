@@ -62,7 +62,7 @@ try {
   // ---------------------------------------------------------------- pixelcompare
   const same = px("same", ["--a", `${SA.base}/`, "--b", `${SB.base}/`]);
   green("pixelcompare — the same page from two processes measures 0.00 (v0.3.22)", same, /./);
-  truthy("pixelcompare — …and the run names its instrument: seed/ready/drive fingerprints (v0.3.23)", /\[pixel\] instrument — seed none · ready none · drive none/.test(same.out), same.out.slice(0, 300));
+  truthy("pixelcompare — …and the run names its instrument: seed/ready/drive fingerprints + cold-cache (v0.3.23)", /\[pixel\] instrument — seed none · ready none · drive none · cold-cache/.test(same.out), same.out.slice(0, 300));
   eq("pixelcompare — …and metric.json records meanAbsDiff 0 (v0.3.22)", metric(path.join(TMP, "px-same"), "same")?.meanAbsDiff, 0);
 
   const diff = px("diff", ["--a", `${SA.base}/diff.html`, "--b", `${SB.base}/diff.html`, "--max-mean", "0"]);

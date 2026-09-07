@@ -20,10 +20,12 @@
 **M(n-1) 像素门（本条最大的一块）**：
 - **`--ready` 可以留言**：判据把没就绪的原因写进 `window.__why`，pixelcompare 在 "never satisfied" 时原样打印。此前 900 帧的沉默里没有任何办法问"你在等哪张图"。
 - **每次跑都打仪器指纹**：开头一行 `instrument — seed <sha10> (N chars) · ready … · drive …`。一份陈旧的重复 `--seed`（差一条语句）吃掉半天，输出里没有一行说两次跑的仪器不同。
+- **每一拍都冷缓存**：一个浏览器轮流拍两侧，第二拍缓存已热，站点在 `img.complete` 上走同步分支（"缩略图到了才展开"的面板 B 开 A 关，同侧自比一格恒定 5.8，`--after-ready` 加到 600 也不动）。`Network.setCacheDisabled` + 每次导航前 `clearBrowserCache`，指纹行标 `cold-cache`。
+- **走位 seed 关闭 scroll restoration**：同 URL 连拍时 Chrome 在 load 前恢复上一拍的落点，`--self` 第二拍从别处起跑、站点 init 的观察者触发不同——带宽里一格恒定 3.7，跨侧却是 0（URL 不同）。pixel-walk 的 seed 第一句 `history.scrollRestoration = "manual"`。
 - **`--drive` 的合同写进报错与头注**：它是滚动驱动器，必须写 `window.__walkScroll` 落点；媒体补丁这类"没有落点"的东西属于 `--seed`。
 - **pixel-walk 转发整套协议**：`--seed` / `--freeze-css` / `--after-ready` / `--chunk` 此前不转发——巡航把调用者刚移除的熵重新量了一遍（带宽 0.16 → 1.8）；用户 seed 排在滚动 seed 前，一份注入；`window.__why` 行也转发。
 - **`--chunk` 是"每个真实往返过几个虚拟 tick"**：hls.js 要 N 个真实往返才出画面，`--chunk 5` 下 900 帧 `<video>` 仍 `readyState 1`，`--chunk 1` 约 430 帧就绪。写进头注与 determinism §7.1。
-- determinism §2.6 新增：**`autoplay` 属性不经过 `play()`**（只补丁 `play()` 拦不住，要在 `document` 捕获相接媒体事件）；**HLS 首片 PTS 偏移**（0.021 起，seek 到 0 落洞永不完成——`currentTime` setter 把目标搬到第一段缓冲起点）；**谎报 `paused=false` 会触发 hls.js 停滞 nudge**（kimi 的补丁在 hls.js 站上反噬）。§7.1 新增"协议表达式单一来源 + 指纹"。实证全部在 case-studies/determinism.md。
+- determinism §7.1 另加两条：缓存状态是仪器条件（每拍都冷；`localStorage` 起跑清空）；到达判据看"有图"（`naturalWidth>0||complete`）不看 `complete`，喂 GL 的媒体可见性不看 `opacity`，脱离 DOM 的预载器只能用更长的 `--after-ready`。§2.6 新增：**`autoplay` 属性不经过 `play()`**（只补丁 `play()` 拦不住，要在 `document` 捕获相接媒体事件）；**HLS 首片 PTS 偏移**（0.021 起，seek 到 0 落洞永不完成——`currentTime` setter 把目标搬到第一段缓冲起点）；**谎报 `paused=false` 会触发 hls.js 停滞 nudge**（kimi 的补丁在 hls.js 站上反噬）。§7.1 新增"协议表达式单一来源 + 指纹"。实证全部在 case-studies/determinism.md。
 
 **M2b 服务层**：serve **`--stub-json PATH::FILE`**（可重复）——外壳 POST 回源站的端点（admin-ajax、表单网关）按源站自己的 JSON 合同在服务层应答、任意方法、不转发，首次命中打印；此前落进 404 模板、`res.json()` 抛错、表单走失败分支而控制台不说为什么。
 

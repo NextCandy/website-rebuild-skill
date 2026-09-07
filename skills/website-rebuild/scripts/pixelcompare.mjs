@@ -334,6 +334,16 @@ const evalJs = async (expression) => {
 
 await cdp.send('Runtime.enable');
 await cdp.send('Page.enable');
+// ⛔ Every capture starts CACHE-COLD. One browser photographs both sides in
+// turn, so without this the second capture runs warm: `img.complete` is true
+// at construction, the site takes its synchronous branch, and a panel that
+// opens "when the thumbnail has loaded" is open on B and closed on A.
+// Measured (lamalama, --self on one origin): a constant 5.8 at one checkpoint
+// that no amount of --after-ready moved — the two frames differed by cache
+// state, not by time. Under --self both sides are the same origin, so the
+// asymmetry is pure instrument; across sides it merely hides in "first visit".
+await cdp.send('Network.enable');
+await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
 await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: false });
 // ⭐ Fingerprint the protocol inputs. Two runs that disagree must be visibly
 // running different instruments: a stale duplicate --seed in a wrapper script
@@ -341,7 +351,7 @@ await cdp.send('Emulation.setDeviceMetricsOverride', { width: W, height: H, devi
 // seeds differed in one statement and nothing in the output said so.
 {
   const fp = (v) => v ? `${createHash('sha256').update(v).digest('hex').slice(0, 10)} (${v.length} chars)` : 'none';
-  console.log(`[pixel] instrument — seed ${fp(SEED)} · ready ${fp(READY)} · drive ${fp(DRIVE)}${FREEZE_CSS ? ' · freeze-css' : ''}`);
+  console.log(`[pixel] instrument — seed ${fp(SEED)} · ready ${fp(READY)} · drive ${fp(DRIVE)}${FREEZE_CSS ? ' · freeze-css' : ''} · cold-cache`);
 }
 if (SEED) await cdp.send('Page.addScriptToEvaluateOnNewDocument', { source: SEED });
 if (FREEZE_CSS) {
@@ -383,6 +393,7 @@ function shotFatal(label, err) {
 
 let landA = null, landB = null;
 async function capture(url, label) {
+  await cdp.send('Network.clearBrowserCache').catch(() => {});
   await cdp.send('Page.navigate', { url });
   // ⛔ --ready is NOT a pre-pump wait. Checking it before the pump can only ever
   // express "ready without any driving", and on a frozen page the states worth

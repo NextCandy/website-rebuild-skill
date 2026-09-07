@@ -95,7 +95,14 @@ if (STEPS < 2) { console.error("FATAL — --steps must be >= 2. One checkpoint i
 // ⚠ The re-issue rides the pump, not the wall clock, so it still lands after
 // init on a frozen page.
 const seedFor = (f) =>
-  `window.addEventListener("load", () => {
+  `// ⛔ Same-URL captures RESTORE the previous capture's scroll position before
+   // load (Chrome's scroll restoration) — under --self the second side starts
+   // where the first one landed, its init fires different observers, and the
+   // band records a difference that is pure instrument (lamalama: a constant
+   // 3.7 at one checkpoint, 0.00 with this line). The walk drives the scroll
+   // itself, so restoration has nothing to offer here.
+   history.scrollRestoration = "manual";
+   window.addEventListener("load", () => {
      // ⛔ FIND THE SCROLLER. The document is not always what scrolls. A site
      // using a smooth-scroll library often scrolls an inner
      // \`overflow-y: auto\` container, and there

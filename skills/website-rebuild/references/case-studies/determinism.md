@@ -212,3 +212,7 @@ shopify.design 上，出厂 shim 冻的三样（rAF + `setTimeout` + visibility�
 
 **【lamalama】陈旧的重复 seed 吃掉半天（2026-09）**：walk.sh 早期版本把 seed 放在 `SEED="…"` 变量里，后来改成行内 `--seed "…"`，两份都留在文件里；之后每次"修 seed"都只改到其中一份，探针脚本又用 `sed | head -1` 取到另一份。于是 25% 档（作品网格，8 个 HLS `webgl_video` 同框）无论怎么改都 "never satisfied"，`__why` 里 `seeking@0.00` 无限循环、`sets=0 stops=0`——直到给 stop() 加计数器发现它根本没在跑，才回头看 seed 文本。真相是那份旧 seed 的 `if(readyState>0) currentTime=0`：HLS 首片 PTS 从 0.021 起，0 落在洞里，seek 永不完成，每个媒体事件再 seek 一次。清洁的 v6 seed（`currentTime` setter 把落在第一段缓冲之前的目标改到缓冲起点、同位不重复 seek；在播才 pause；停在缓冲外就搬进缓冲，每元素 ≤20 次；不谎报 `paused`——谎报会让 hls.js 的停滞检测去 nudge）下 25% 档自比两次 0.01。回哺：`protocol.env` 单一来源 + pixelcompare 开头打印 seed/ready/drive 指纹。
 
+**【lamalama】/services/branding/ 自比 25% 档恒定 5.8、75% 档 24（2026-09-07）**：A 拍"NEXT SERVICE (+)" 折叠、GL 大图缺、页底照片带缺；B 拍全有。依次排除：`localStorage`（seed 清空，不变）、懒图 src 待命（判据加 lazy pending，不变）、把所有已开始的图算到达（跑马灯视口外懒图 `complete` 恒 false → 5 档全 never ready；改成 `naturalWidth>0||complete`）、`--after-ready` 120 → 600（75% 档归零，25% 档纹丝不动）。最后是缓存：同源两拍，B 热 A 冷，站点在 `img.complete` 上分支。pixelcompare 改为每拍冷缓存后 25% 档 0。整条路上每一步都是 `window.__why` 与指纹行让"改了什么、卡在谁"可见。
+
+**【lamalama】/services/websites/ 自比 25% 档 3.68，冷缓存后仍在（2026-09-07）**：state-probe（同浏览器连拍两次、只带走位驱动不带走位 seed）两次状态全等；用 pixelcompare 逐字带上 pixel-walk 的走位 seed 才复现 3.7（worst 179.7，页底照片带）；seed 前加 `history.scrollRestoration='manual'` → 0.00。机制：第二拍同 URL，Chrome 在 load 前恢复第一拍的落点 1639，站点 init 从 1639 起跑，照片带的 IO 立刻命中；第一拍从 0 起跑，驱动到 1639 时那个 IO 已经错过。跨侧两侧 URL 不同，没有恢复，所以跨侧 20 档全 0 而自比有一格。回哺：pixel-walk 走位 seed 第一句关闭 scroll restoration。
+

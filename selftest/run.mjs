@@ -1429,6 +1429,11 @@ const TMP = scratch(".tmp");
   red("serve — --stub-json pointing at a missing file is FATAL 2 before the server listens (v0.3.23)", run("scripts/serve.mjs", ["--root", path.join(D, "site"), "--port", "29991", "--stub-json", "/x::" + path.join(D, "nope.json")]), /not a readable JSON file/, 2);
 }
 
+// pixel-walk's scroll seed must switch scroll restoration off: same-URL captures
+// otherwise start where the previous capture landed (v0.3.23, lamalama --self 3.7 → 0.00).
+truthy("pixel-walk — the scroll seed sets history.scrollRestoration = \"manual\" before its load handler (v0.3.23)",
+  /history\.scrollRestoration = "manual";[\s\S]{0,200}addEventListener\("load"/.test(readFileSync(path.join(SKILL, "scripts/pixel-walk.mjs"), "utf8")), "seed text");
+
 // pixel-walk forwards the whole pixelcompare protocol (v0.3.23): a walk that drops
 // --seed / --freeze-css re-measures the entropy the caller had just removed.
 {
