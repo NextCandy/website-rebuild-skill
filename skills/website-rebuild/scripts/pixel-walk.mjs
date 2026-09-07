@@ -210,6 +210,9 @@ for (let i = 0; i < STEPS; i++) {
   // frame(s)" / "--hold satisfied after N" per side, and swallowing them left a
   // walk whose READY never fired indistinguishable from one that aligned
   // (raycastkbd: a constant 1.7 band with no line saying why).
+  // The instrument line once per walk: every checkpoint runs the same seed/ready/drive
+  // (the seed and drive embed f, so only the ready hash is expected to be constant).
+  if (i === 0) for (const line of out.split("\n")) if (/^\[pixel\] instrument — /.test(line)) console.log(`  ${line.trim()}`);
   for (const line of out.split("\n")) if (/^\[pixel\]\s+(REBUILD|MIRROR|[AB]):.*(ready after|--hold satisfied|never satisfied)/.test(line) || /window\.__why/.test(line)) console.log(`  ${line.trim()}`);
   // Landing positions, reported by the seed on each side.
   const m = out.match(/\{"meanAbsDiff":[^}]+\}/);
