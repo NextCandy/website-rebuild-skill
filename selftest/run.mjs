@@ -136,6 +136,20 @@ const TMP = scratch(".tmp");
   eq("extract — .webmanifest/.jsonld/.woff2 root-relative refs are assets (v0.3.16)",
     ["https://x.com/site.webmanifest", "https://x.com/a.jsonld", "https://x.com/f.woff2"].filter((u) => lx.includes(u)).length, 3);
   truthy("extract — /about is still a page, not an asset (v0.3.16)", !lx.some((u) => u.endsWith("/about")), JSON.stringify(lx));
+  // v0.3.23 (lamalama): an import.meta.glob KEY is not an address, and Vite's
+  // __vite__mapDeps under an absolute base names chunks as "assets/x.js"
+  // relative to that base — 46 of 62 lazy chunks were absent from a "closed"
+  // mirror, and 9 phantom URLs (`"./ticker.js":()=>…`) sat in the ledger as 404s.
+  const jsb = "https://x.com/wp/dist/assets/app-AAAAAAAA.js";
+  truthy("extract — import.meta.glob key \"./x.js\": is not an address (v0.3.23)",
+    !refs(`o={"./ticker.js":()=>M(()=>Promise.resolve().then(()=>d)),"./scroller.js":()=>1}`, jsb).some((u) => /ticker|scroller/.test(u)));
+  truthy("extract — a real \"./x.js\" specifier still resolves (v0.3.23)",
+    refs(`import"./scripts-BBBBBBBB.js";`, jsb).includes("https://x.com/wp/dist/assets/scripts-BBBBBBBB.js"));
+  const vm = refs("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/a-CCCCCCCC.js\",\"assets/b-DDDDDDDD.css\"])))=>i.map(i=>d[i]);var vt=function(e){return`/wp/dist/`+e}", jsb);
+  eq("extract — __vite__mapDeps entries resolve against the chunk's own base literal (v0.3.23)",
+    ["https://x.com/wp/dist/assets/a-CCCCCCCC.js", "https://x.com/wp/dist/assets/b-DDDDDDDD.css"].filter((u) => vm.includes(u)).length, 2);
+  truthy("extract — …and against the importer's parent dir when no base literal is in the chunk (v0.3.23)",
+    refs("const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=[\"assets/c-EEEEEEEE.js\"])))=>i.map(i=>d[i]);", jsb).includes("https://x.com/wp/dist/assets/c-EEEEEEEE.js"));
   // isTextRefSource: declared type is the oracle; octet-stream means "unknown".
   truthy("textref — declared css wins", isTextRefSource({ url: "https://x.com/f", contentType: "text/css", head: Buffer.from("a{}") }));
   truthy("textref — png bytes not text", !isTextRefSource({ url: "https://x.com/i.png", contentType: "image/png", head: Buffer.from([0x89, 0x50, 0x4e, 0x47]) }));
@@ -743,8 +757,14 @@ const TMP = scratch(".tmp");
   const http = await import("node:http");
   const { execFile } = await import("node:child_process");
   let failA = false;
+  // v0.3.23 (lamalama): internal links are ABSOLUTE same-origin on WordPress and
+  // most CMS themes; a root-relative-only regex crawled nothing but the seeds
+  // (8 service pages missed). And a 404 page must not be saved as
+  // <path>/index.html — serve.mjs would answer 200 where the origin said 404.
   const routes = {
-    "/": ["text/html", `<html><a href="/about">about</a><script src="/app.js"></script><img src="/a.png"></html>`],
+    "/": ["text/html", (host) => `<html><a href="/about">about</a><a href="http://${host}/in/abs/">abs</a><script src="/app.js"></script><img src="/a.png"></html>`],
+    "/in/abs": ["text/html", `<html><a href="/in/gone/">gone</a><img src="/in/x.png"></html>`],
+    "/in/gone": ["text/html", `<html><body>not found</body></html>`, 404],
     "/app.js": ["text/javascript", `fetch("/data.json");x="/legal/site.html";y="/in/page.html";`],
     "/data.json": ["application/json", `{"img":"/b.png"}`],
     "/a.png": ["image/png", "PNGA"], "/b.png": ["image/png", "PNGB"],
@@ -756,7 +776,7 @@ const TMP = scratch(".tmp");
     const r = routes[req.url];
     if (req.url === "/a.png" && failA) { res.writeHead(500); return res.end("boom"); }
     if (!r) { res.writeHead(404); return res.end("nf"); }
-    res.writeHead(200, { "content-type": r[0] }); res.end(r[1]);
+    res.writeHead(r[2] || 200, { "content-type": r[0] }); res.end(typeof r[1] === "function" ? r[1](req.headers.host) : r[1]);
   });
   await new Promise((r) => srv.listen(0, "127.0.0.1", r));
   const origin = `http://127.0.0.1:${srv.address().port}`;
@@ -772,6 +792,11 @@ const TMP = scratch(".tmp");
     truthy("mirror-site — .html named in a chunk, in scope: crawled as a page with its assets (v0.3.16)",
       /\[page\] \/in\/page\.html/.test(c1.out) && existsSync(path.join(OUTM, "in/page.html")) && existsSync(path.join(OUTM, "in/x.png")), c1.out.slice(-300));
     truthy("mirror-site — .webmanifest is queued as an asset and written as a file (v0.3.16)", statSync(path.join(OUTM, "in/site.webmanifest")).isFile());
+    truthy("mirror-site — an ABSOLUTE same-origin href is a page link: /in/abs/ crawled, its asset fetched (v0.3.23)",
+      /\[page\] \/in\/abs/.test(c1.out) && existsSync(path.join(OUTM, "in/abs/index.html")) && existsSync(path.join(OUTM, "in/x.png")), c1.out.slice(-300));
+    const gone = manifest()[`${origin}/in/gone`];
+    truthy("mirror-site — a 404 page is a ledger error row, never <path>/index.html (v0.3.23)",
+      !existsSync(path.join(OUTM, "in/gone")) && gone && gone.path === null && /HTTP 404 \(page\)/.test(gone.error), `${JSON.stringify(gone)} dir=${existsSync(path.join(OUTM, "in/gone"))} log=${(c1.out.match(/.*gone.*/g) || []).join(" | ").slice(0, 300)}`);
     failA = true;
     const c2 = await crawl();
     const row = manifest()[`${origin}/a.png`];
