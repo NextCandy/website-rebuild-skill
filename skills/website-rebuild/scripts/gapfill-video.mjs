@@ -259,9 +259,14 @@ async function walkPlaylist(url, depth) {
   let text;
   // The master is normally already mirrored — read it rather than refetch it.
   if (!FORCE && (await exists(p))) {
-    text = await readFile(p, 'utf8');
+    const buf = await readFile(p);
+    text = buf.toString('utf8');
     playlistsFromDisk++;
     console.log(`[playlist] ${'  '.repeat(depth)}${url.slice(0, 110)} (on disk, ${text.length}b)`);
+    // Same repair as the segment loop: a playlist row written without sha256
+    // (or a playlist on disk with no row at all) gets its hash from the bytes.
+    const row = manifestData.files[url];
+    if (!row || !row.sha256) { record(url, p, buf.length, row?.type || '', sha256(buf)); repaired++; }
   } else {
     try {
       const { buf, type } = await get(url);

@@ -1326,11 +1326,11 @@ const TMP = scratch(".tmp");
     truthy("gapfill-video — inventory.tsv is regenerated through lib/ledger (header + 4 rows) (v0.3.23)", inv.length === 5 && /^SHA256\t/.test(inv[0]), `lines=${inv.length}`);
     // rows written by the old script (no sha256) are repaired from disk, not re-downloaded
     const m = JSON.parse(readFileSync(path.join(GF, "mirror-manifest.json"), "utf8"));
-    for (const u of Object.keys(m.files)) if (u.endsWith(".ts")) delete m.files[u].sha256;
+    for (const u of Object.keys(m.files)) if (u.endsWith(".ts") || u.endsWith("/360p/video.m3u8")) delete m.files[u].sha256;
     writeFileSync(path.join(GF, "mirror-manifest.json"), JSON.stringify(m, null, 2)); rmSync(path.join(GF, "inventory.tsv"));
     const g2 = await gap();
-    truthy("gapfill-video — rows lacking sha256 are repaired from the bytes on disk, 0 downloads (v0.3.23)",
-      g2.code === 0 && /0 segment\(s\) downloaded/.test(g2.out) && /2 row\(s\) repaired/.test(g2.out) && Object.values(files()).every((r) => r.sha256) && existsSync(path.join(GF, "inventory.tsv")), g2.out.slice(-240));
+    truthy("gapfill-video — segment AND playlist rows lacking sha256 are repaired from the bytes on disk, 0 downloads (v0.3.23)",
+      g2.code === 0 && /0 segment\(s\) downloaded/.test(g2.out) && /3 row\(s\) repaired/.test(g2.out) && Object.values(files()).every((r) => r.sha256) && existsSync(path.join(GF, "inventory.tsv")), g2.out.slice(-240));
   } catch (e) { bad("gapfill-video loopback", String(e.message).split("\n")[0]); }
   finally { srv.close(); }
 }
